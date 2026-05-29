@@ -2,6 +2,8 @@ package com.example.customerservice.agent;
 
 import com.example.customerservice.dto.ChatResponse;
 import com.example.customerservice.fallback.RuleBasedFallbackService;
+import com.example.customerservice.observability.ReactStepLogger;
+import com.example.customerservice.observability.ReactTraceContext;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.tool.ToolExecution;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -18,31 +20,34 @@ public class ResilientAiClient {
 
     private final CustomerServiceAgent customerServiceAgent;
     private final RuleBasedFallbackService fallbackService;
+    private final ReactStepLogger reactStepLogger;
 
-    /**
-     * ReAct 模式下的重试由 LangChain4j 工具循环内部完成（参数修正、换工具、多轮推理），
-     * 此处仅保留熔断降级，避免整次 AI 调用被 Spring Retry 从头重放。
-     */
     @CircuitBreaker(name = "aiAgent", fallbackMethod = "circuitBreakerFallback")
     public ChatResponse invoke(String sessionId, String message) {
-        log.debug("Invoking ReAct agent for session={}", sessionId);
-        Result<String> result = customerServiceAgent.chat(sessionId, message);
+        reactStepLogger.startTrace(sessionId, message);
+        try {
+            Result<String> result = customerServiceAgent.chat(sessionId, message);
+            List<ToolExecution> toolExecutions = result.toolExecutions();
+            int reactRounds = toolExecutions != null ? toolExecutions.size() : 0;
 
-        List<ToolExecution> toolExecutions = result.toolExecutions();
-        int reactRounds = toolExecutions != null ? toolExecutions.size() : 0;
-        log.info("ReAct completed: session={}, toolInvocations={}", sessionId, reactRounds);
+            reactStepLogger.finishTrace(result.content(), reactRounds);
 
-        return ChatResponse.builder()
-                .reply(result.content())
-                .mode("react")
-                .fallback(false)
-                .reactRounds(reactRounds)
-                .toolCalls(summarizeToolCalls(toolExecutions))
-                .build();
+            return ChatResponse.builder()
+                    .reply(result.content())
+                    .mode("react")
+                    .fallback(false)
+                    .reactRounds(reactRounds)
+                    .toolCalls(summarizeToolCalls(toolExecutions))
+                    .build();
+        } catch (Exception e) {
+            ReactTraceContext.clear();
+            throw e;
+        }
     }
 
     @SuppressWarnings("unused")
     private ChatResponse circuitBreakerFallback(String sessionId, String message, Throwable t) {
+        ReactTraceContext.clear();
         log.warn("Circuit breaker open, falling back to rule-based service: {}", t.getMessage());
         return ChatResponse.fallback(fallbackService.handle(message), t.getMessage());
     }

@@ -12,9 +12,8 @@ spring:
 langchain4j:
   open-ai:
     chat-model:
-      api-key: ${OPENAI_API_KEY:sk-Fat40iO2E1f7QyV9Sj9Drx9m2NlTmba911ITJ5aFPbAD2ejh}
+      api-key: ${OPENAI_API_KEY}
       model-name: ${OPENAI_MODEL:gpt-3.5-turbo}
-      base-url: https://api.chatanywhere.tech
       temperature: 0.2
       timeout: PT60S
       log-requests: false
@@ -33,8 +32,9 @@ app:
   llm:
     provider: ${LLM_PROVIDER:openai}
   agent:
-    # ReAct 最大推理轮次（每次 LLM 返回工具调用 = 1 轮 Thought→Action→Observation）
     max-sequential-tool-invocations: ${AGENT_MAX_TOOL_ROUNDS:10}
+    trace-enabled: ${AGENT_TRACE_ENABLED:true}
+    trace-max-result-length: ${AGENT_TRACE_MAX_LENGTH:800}
   order:
     simulate-transient-failure: ${SIMULATE_ORDER_FAILURE:false}
     transient-failure-rate: 3
@@ -69,5 +69,6 @@ management:
 
 logging:
   level:
+    com.example.customerservice.observability: INFO
     com.example.customerservice: INFO
     dev.langchain4j: WARN

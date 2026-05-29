@@ -209,8 +209,7 @@ cd customer-service-agent
 
 export OPENAI_API_KEY=sk-your-key-here
 
-# 若使用 ChatAnywhere，确保 application.yml 中：
-#   base-url: https://api.chatanywhere.tech/v1
+# 若使用第三方 OpenAI 兼容代理，在 application.yml 中配置 base-url 或通过环境变量注入
 
 mvn spring-boot:run
 ```
@@ -323,7 +322,6 @@ langchain4j:
     chat-model:
       api-key: ${OPENAI_API_KEY}
       model-name: ${OPENAI_MODEL:gpt-3.5-turbo}
-      base-url: https://api.chatanywhere.tech/v1   # 第三方代理需加 /v1
       max-retries: 2                                # LLM HTTP 重试
 
 app:
