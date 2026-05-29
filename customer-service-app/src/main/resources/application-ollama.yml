@@ -1,0 +1,25 @@
+spring:
+  config:
+    activate:
+      on-profile: ollama
+  autoconfigure:
+    exclude:
+      - dev.langchain4j.openai.spring.AutoConfig
+
+app:
+  llm:
+    provider: ollama
+
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: disabled
+  ollama:
+    streaming-chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: ${OLLAMA_MODEL:qwen2.5:7b}
+      timeout: PT120S
+
+logging:
+  level:
+    dev.langchain4j: INFO

@@ -1,0 +1,91 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: customer-service-agent
+  jmx:
+    enabled: false
+  autoconfigure:
+    exclude:
+      - dev.langchain4j.ollama.spring.AutoConfig
+
+# OpenAI (default LLM provider)
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${OPENAI_API_KEY}
+      model-name: ${OPENAI_MODEL:gpt-3.5-turbo}
+      temperature: 0.2
+      timeout: PT60S
+      log-requests: false
+      log-responses: false
+      strict-tools: true
+      max-retries: 2
+    streaming-chat-model:
+      api-key: ${OPENAI_API_KEY}
+      model-name: ${OPENAI_MODEL:gpt-3.5-turbo}
+      temperature: 0.2
+      timeout: PT120S
+      log-requests: false
+      log-responses: false
+      strict-tools: true
+
+  # Ollama (optional local LLM, enable via profile: ollama)
+  ollama:
+    chat-model:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: ${OLLAMA_MODEL:qwen2.5:7b}
+      timeout: PT120S
+
+app:
+  llm:
+    provider: ${LLM_PROVIDER:openai}
+  agent:
+    max-sequential-tool-invocations: ${AGENT_MAX_TOOL_ROUNDS:10}
+    trace-enabled: ${AGENT_TRACE_ENABLED:true}
+    trace-max-result-length: ${AGENT_TRACE_MAX_LENGTH:800}
+  order:
+    simulate-transient-failure: ${SIMULATE_ORDER_FAILURE:false}
+    transient-failure-rate: 3
+    strict-format: ${ORDER_STRICT_FORMAT:true}
+  resilience:
+    param-correction-mode: ${PARAM_CORRECTION_MODE:ai}
+    order-retry:
+      max-attempts: 3
+      delay-ms: 500
+      multiplier: 2.0
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiAgent:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 3
+        permitted-number-of-calls-in-half-open-state: 2
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 80
+        slow-call-duration-threshold: 30s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,circuitbreakers,circuitbreakerevents
+    jmx:
+      exposure:
+        exclude: '*'
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.example.ai.observability: INFO
+    com.example.ai.customerservice: INFO
+    dev.langchain4j: WARN
+    sun.rmi.transport.tcp: ERROR
+    sun.rmi.loader: ERROR
+    javax.management.remote.rmi: ERROR
