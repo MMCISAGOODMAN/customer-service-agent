@@ -1,0 +1,67 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: cs-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c", "ollama pull qwen2.5:7b"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    network_mode: "service:ollama"
+    restart: "no"
+
+  customer-service-agent:
+    build: .
+    container_name: customer-service-agent
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: qwen2.5:7b
+      LLM_PROVIDER: ollama
+      SIMULATE_ORDER_FAILURE: "false"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  # OpenAI variant - use: docker compose --profile openai up
+  customer-service-agent-openai:
+    profiles: ["openai"]
+    build: .
+    container_name: customer-service-agent-openai
+    ports:
+      - "8081:8080"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      LLM_PROVIDER: openai
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  ollama_data:

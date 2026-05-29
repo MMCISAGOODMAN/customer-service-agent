@@ -1,0 +1,20 @@
+spring:
+  config:
+    activate:
+      on-profile: ollama
+  autoconfigure:
+    exclude:
+      - dev.langchain4j.openai.spring.AutoConfig
+
+app:
+  llm:
+    provider: ollama
+
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: disabled
+
+logging:
+  level:
+    dev.langchain4j: INFO
